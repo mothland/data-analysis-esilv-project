@@ -1,0 +1,13 @@
+pandas
+numpy
+eurostat
+geopandas
+rasterstats
+rasterio
+matplotlib
+plotly
+dash
+scikit-learn
+mlxtend
+statsmodels
+boto3

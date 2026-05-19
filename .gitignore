@@ -1,0 +1,15 @@
+# venv
+.venv/
+venv/
+env/
+
+# jupyter
+.ipynb_checkpoints/
+*.pyc
+__pycache__/
+
+# data (keep data/ tracked so groupmates don't have to regenerate/download)
+
+# OS
+.DS_Store
+Thumbs.db
