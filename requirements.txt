@@ -11,3 +11,4 @@ scikit-learn
 mlxtend
 statsmodels
 boto3
+s3fs
