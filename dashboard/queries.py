@@ -103,30 +103,95 @@ def query1_infrastructure_efficiency(df, year=2021, top_n=15):
 
 
 # ─────────────────────────────────────────────────────────────────
-# Query 2 - Pattern Mining [2pt]  — TODO: teammate implements this
+# Query 2 - Pattern Mining [2pt]
 # ─────────────────────────────────────────────────────────────────
-def query2_pattern_mining(df):
+def query2_pattern_mining(df, year_min=2015, year_max=2022, min_support=0.10, top_n=12):
     """
-    Query 2 - Pattern mining [2pt]  (placeholder — to be implemented)
-
-    Input:  df - master dataframe
-    Output: (fig, explanation) — see module docstring for contract
-
-    Suggested approach (from notebook_skeleton.ipynb):
-        Frequent itemsets of (terrain_bucket, water_bucket, budget_bucket)
-        -> infrastructure level clusters, using mlxtend.frequent_patterns
-        (Apriori / FP-Growth).
+    Query 2 - Pattern mining [2pt]
+ 
+    Input:  df           - master dataframe (NUTS_ID, year, infra_km,
+                           expenditure_mEUR, mean_elevation_m, dist_to_river_km, ...)
+            year_min/max - period used to average each region (default 2015-2022,
+                           the years with the best coverage)
+            min_support  - minimum support for an itemset to be "frequent"
+            top_n        - how many frequent combinations to display
+ 
+    Output: (fig, explanation)
+            fig         - Plotly horizontal bar chart of the most frequent
+                          combinations of region characteristics
+            explanation - markdown string (required by the rubric)
+ 
+    What it computes (frequent itemset mining, the basic form of pattern mining):
+        Each NUTS2 region becomes a "basket" of items by cutting terrain,
+        water, budget and infra into low/mid/high tertiles. Apriori then finds
+        which COMBINATIONS of those labels appear together in many regions.
+        The only metric is SUPPORT = the fraction of regions that contain the
+        combination. We show the most frequent 2-item combinations.
     """
-    fig = go.Figure()
-    fig.update_layout(
-        title="Query 2 - Pattern mining (to be implemented)",
-        annotations=[dict(
-            text="Placeholder — teammate implements this query",
-            x=0.5, y=0.5, showarrow=False, font=dict(size=18),
-        )],
-        height=400,
+    from mlxtend.preprocessing import TransactionEncoder
+    from mlxtend.frequent_patterns import apriori
+ 
+    # ── One row per region: average over the well-covered recent years ──
+    cols = ["mean_elevation_m", "dist_to_river_km", "expenditure_mEUR", "infra_km"]
+    reg = (
+        df[df["year"].between(year_min, year_max)]
+        .groupby("NUTS_ID")[cols].mean().dropna().reset_index()
     )
-    explanation = "_Pattern mining query — to be implemented by the team (2pt)._"
+ 
+    # ── Turn each continuous variable into a low / mid / high label (= an item) ──
+    def buckets(s, name):
+        return pd.qcut(s, 3, labels=[f"{name}=low", f"{name}=mid", f"{name}=high"])
+ 
+    reg["terrain"] = buckets(reg["mean_elevation_m"], "terrain")  # elevation
+    reg["budget"]  = buckets(reg["expenditure_mEUR"], "budget")   # public transport spending
+    reg["infra"]   = buckets(reg["infra_km"], "infra")            # road/rail density
+    reg["water"]   = pd.qcut(reg["dist_to_river_km"], 3,          # distance to nearest river
+                             labels=["water=near", "water=mid", "water=far"])
+ 
+    # ── Build the basket matrix and mine frequent itemsets with Apriori ──
+    baskets = reg[["terrain", "water", "budget", "infra"]].astype(str).values.tolist()
+    te = TransactionEncoder()
+    onehot = pd.DataFrame(te.fit_transform(baskets), columns=te.columns_)
+    itemsets = apriori(onehot, min_support=min_support, use_colnames=True)
+ 
+    # ── Keep the real "patterns": combinations of at least 2 items ──
+    itemsets["size"] = itemsets["itemsets"].apply(len)
+    itemsets["combination"] = itemsets["itemsets"].apply(lambda s: " + ".join(sorted(s)))
+    top = (itemsets[itemsets["size"] >= 2]
+           .sort_values("support", ascending=False)
+           .head(top_n))
+ 
+    # ── Visualise: the most frequent combinations, ranked by support ──
+    fig = px.bar(
+        top.sort_values("support"),
+        x="support",
+        y="combination",
+        orientation="h",
+        color="support",
+        color_continuous_scale="Blues",
+        labels={"support": "Support (share of regions)", "combination": "Frequent combination"},
+        title="Query 2 — Most frequent combinations of region characteristics",
+    )
+    fig.update_layout(height=500, yaxis={"categoryorder": "total ascending"})
+ 
+    explanation = f"""
+**Indicator: frequent combinations of region characteristics (frequent itemsets)**
+ 
+- **How it's calculated**: each NUTS2 region (averaged over {year_min}-{year_max})
+  is described by four labels — terrain, water, budget and infrastructure — each
+  cut into **low / mid / high tertiles**. A region is then a *basket* of items,
+  e.g. `terrain=mid, water=far, budget=low, infra=low`. The **Apriori** algorithm
+  (`min_support={min_support}`) finds the combinations of labels that appear
+  together in many regions. We keep combinations of at least two labels.
+- **What the metric means**: the only metric is **support** = the share of
+  regions that contain the combination. A support of 0.17 means 17% of all
+  regions have that exact pair of characteristics.
+- **How to interpret it**: the top bars are the dominant profiles in Europe.
+  Combinations like *budget=low + infra=low* or *budget=high + infra=high* show
+  that public spending and infrastructure density tend to go together, while
+  *infra=low + terrain=mid* shows that harder terrain coincides with sparser
+  networks — which is exactly the relationship the project investigates.
+"""
     return fig, explanation
 
 
