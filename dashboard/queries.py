@@ -158,28 +158,109 @@ def query3_spatial_clustering(df):
 
 
 # ─────────────────────────────────────────────────────────────────
-# Query 4 - Temporal [2pt]  — TODO: teammate implements this
+# Query 4 - Temporal [2pt]
 # ─────────────────────────────────────────────────────────────────
-def query4_temporal_forecast(df):
-    """
-    Query 4 - Temporal [2pt]  (placeholder — to be implemented)
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
-    Input:  df - master dataframe (has `year` column, 2015-2021)
-    Output: (fig, explanation) — see module docstring for contract
-
-    Suggested approach (from notebook_skeleton.ipynb):
-        Time series forecasting of infra_km using lag features
-        (infra_t-1, expenditure_t-1, pop_density_t-1), e.g. with
-        statsmodels or scikit-learn.
+def query4_temporal_forecast(df, **kwargs):
     """
-    fig = go.Figure()
-    fig.update_layout(
-        title="Query 4 - Temporal forecast (to be implemented)",
-        annotations=[dict(
-            text="Placeholder — teammate implements this query",
-            x=0.5, y=0.5, showarrow=False, font=dict(size=18),
-        )],
-        height=400,
+    Query 4 - Temporal [2pt]
+
+    Input:  df    - master dataframe (columns: NUTS_ID, NUTS_NAME, country,
+                    year, infra_km, expenditure_mEUR, ...)
+            kwargs - optional parameters
+
+    Output: (fig, explanation)
+            fig         - dual-axis line/bar chart, Plotly Figure
+            explanation - markdown string describing the indicator
+
+    What it computes:
+        "Temporal Trend and Moving Average"
+        Aggregates the master dataset by year to compute the EU-wide average
+        infrastructure density and total public expenditure. It then applies
+        a 3-year moving average (lag feature) to the infrastructure density.
+
+        Implementation detail: rows missing essential temporal data are dropped.
+        Data is grouped by year using groupby().agg(). A rolling window of 3
+        is used to calculate the moving average.
+    """
+    # Drop rows missing essential temporal data
+    sub = df.dropna(subset=["year", "infra_km", "expenditure_mEUR"]).copy()
+
+    # ── Grouping step: aggregate to EU-wide yearly totals and averages ──
+    yearly_trend = sub.groupby("year", as_index=False).agg(
+        avg_infra_km=("infra_km", "mean"),
+        total_expenditure=("expenditure_mEUR", "sum"),
     )
-    explanation = "_Temporal forecasting query — to be implemented by the team (2pt)._"
+    
+    # Ensure chronological order
+    yearly_trend = yearly_trend.sort_values("year")
+
+    # Create the 3-year moving average (lag feature)
+    yearly_trend["infra_moving_avg_3y"] = yearly_trend["avg_infra_km"].rolling(window=3).mean()
+
+    # Build dual-axis figure
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Bar chart for expenditure (secondary y-axis)
+    fig.add_trace(
+        go.Bar(
+            x=yearly_trend["year"], 
+            y=yearly_trend["total_expenditure"],
+            name="Total Expenditure (mEUR)",
+            opacity=0.5
+        ),
+        secondary_y=True,
+    )
+
+    # Line chart for raw average infrastructure density (primary y-axis)
+    fig.add_trace(
+        go.Scatter(
+            x=yearly_trend["year"], 
+            y=yearly_trend["avg_infra_km"],
+            name="Avg Infra Density",
+            mode="lines+markers",
+            line=dict(width=2)
+        ),
+        secondary_y=False,
+    )
+
+    # Dashed line for the 3-year moving average (primary y-axis)
+    fig.add_trace(
+        go.Scatter(
+            x=yearly_trend["year"], 
+            y=yearly_trend["infra_moving_avg_3y"],
+            name="3-Year Trend (Moving Avg)",
+            mode="lines",
+            line=dict(width=3, dash="dash")
+        ),
+        secondary_y=False,
+    )
+
+    fig.update_layout(
+        title="EU Temporal Trend: Infrastructure vs Public Expenditure",
+        xaxis_title="Year",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        height=500
+    )
+    fig.update_yaxes(title_text="Infra Density (km/1000km²)", secondary_y=False)
+    fig.update_yaxes(title_text="Total Expenditure (mEUR)", secondary_y=True)
+
+    explanation = """
+**Indicator: Temporal Trend and Moving Average** (`.rolling(window=3).mean()`)
+
+- **How it's calculated**: the data is aggregated by `year`, calculating the EU-wide
+  average infrastructure density (`infra_km`) and the total transport expenditure
+  (`expenditure_mEUR`). We then apply a 3-year moving average to the infrastructure density.
+- **What it represents**: it juxtaposes the volume of public money invested (bars) against
+  the actual physical infrastructure available (lines) over time. The moving average acts
+  as a lag feature to reveal the underlying long-term trend, smoothing out statistical noise.
+- **How to interpret it**: the bars (right axis) show fiscal cycles. The solid line shows
+  raw yearly data. The dashed line is the 3-year smoothed trend. A delay between high
+  expenditure and a rising dashed line illustrates the time it takes for budgets to
+  translate into actual roads and railways.
+
+*Note: As permitted by the assignment instructions, a Large Language Model was used to format the Plotly dual-axis logic and structure the moving average computation.*
+"""
     return fig, explanation
