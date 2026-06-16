@@ -196,16 +196,13 @@ def query2_pattern_mining(df, year_min=2015, year_max=2022, min_support=0.10, to
 
 
 # ─────────────────────────────────────────────────────────────────
-# Query 3 - Spatial [2pt]  — TODO: teammate implements this
+# Query 3 - Spatial
 # ─────────────────────────────────────────────────────────────────
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 
-# ─────────────────────────────────────────────────────────────────
-# Query 3 - Spatial [2pt]
-# ─────────────────────────────────────────────────────────────────
 def query3_spatial_clustering(df, year=2021, n_clusters=4):
     """
     Query 3 - Spatial [2pt]
@@ -218,17 +215,15 @@ def query3_spatial_clustering(df, year=2021, n_clusters=4):
 
     What it computes:
         Spatial clustering of NUTS2 regions according to
-        geographic difficulty and infrastructure density.
+        their geographic characteristics.
 
         KMeans is applied using:
-            - mean_elevation_m
             - elevation_std
             - dist_to_river_km
-            - infra_km
 
-        For visualisation purposes, a Geographic Difficulty Score
-        is created from the three geographic variables and plotted
-        against infrastructure density.
+        Infrastructure density is analysed afterwards.
+
+        Bubble size represents population density.
     """
 
     sub = df[df["year"] == year].copy()
@@ -238,7 +233,6 @@ def query3_spatial_clustering(df, year=2021, n_clusters=4):
         subset=[
             "infra_km",
             "pop_density",
-            "mean_elevation_m",
             "elevation_std",
             "dist_to_river_km"
         ]
@@ -251,23 +245,23 @@ def query3_spatial_clustering(df, year=2021, n_clusters=4):
     ).agg(
         infra_km=("infra_km", "mean"),
         pop_density=("pop_density", "mean"),
-        mean_elevation_m=("mean_elevation_m", "mean"),
         elevation_std=("elevation_std", "mean"),
         dist_to_river_km=("dist_to_river_km", "mean"),
     )
 
     # ──────────────────────────────────────────────────────────────
-    # KMeans clustering on the ORIGINAL 4 variables
+    # KMeans clustering based ONLY on geography
     # ──────────────────────────────────────────────────────────────
     cluster_features = [
-        "mean_elevation_m",
         "elevation_std",
-        "dist_to_river_km",
-        "infra_km"
+        "dist_to_river_km"
     ]
 
     scaler = StandardScaler()
-    X = scaler.fit_transform(grouped[cluster_features])
+
+    X = scaler.fit_transform(
+        grouped[cluster_features]
+    )
 
     kmeans = KMeans(
         n_clusters=n_clusters,
@@ -278,17 +272,16 @@ def query3_spatial_clustering(df, year=2021, n_clusters=4):
     grouped["cluster"] = kmeans.fit_predict(X)
 
     # ──────────────────────────────────────────────────────────────
-    # Geographic Difficulty Score (visualisation only)
+    # Geographic Difficulty Score
     # ──────────────────────────────────────────────────────────────
-    geo_features = [
-        "mean_elevation_m",
-        "elevation_std",
-        "dist_to_river_km"
-    ]
+    grouped["difficulty_score"] = X.sum(axis=1)
 
-    geo_scaled = scaler.fit_transform(grouped[geo_features])
-
-    grouped["difficulty_score"] = geo_scaled.sum(axis=1)
+    # ──────────────────────────────────────────────────────────────
+    # Population scaling for bubble size
+    # ──────────────────────────────────────────────────────────────
+    grouped["pop_density_vis"] = np.sqrt(
+        grouped["pop_density"]
+    )
 
     # ──────────────────────────────────────────────────────────────
     # Visualisation
@@ -298,19 +291,28 @@ def query3_spatial_clustering(df, year=2021, n_clusters=4):
         x="difficulty_score",
         y="infra_km",
         color=grouped["cluster"].astype(str),
+        size="pop_density_vis",
+        size_max=30,
         hover_name="NUTS_ID",
         hover_data=[
             "country",
-            "mean_elevation_m",
+            "pop_density",
             "elevation_std",
             "dist_to_river_km"
         ],
         labels={
             "difficulty_score": "Geographic Difficulty Score",
             "infra_km": "Infrastructure Density",
+            "pop_density": "Population Density",
             "color": "Cluster"
         },
         title=f"Infrastructure vs Geographic Difficulty ({year})"
+    )
+
+    fig.update_traces(
+        marker=dict(
+            sizemin=4
+        )
     )
 
     fig.update_layout(height=550)
@@ -320,34 +322,31 @@ def query3_spatial_clustering(df, year=2021, n_clusters=4):
 
 - **How it's calculated**: for {year}, regions are grouped by `NUTS_ID`
   and clustered using the K-Means algorithm. The clustering is based on
-  four variables: `mean_elevation_m`, `elevation_std`,
-  `dist_to_river_km` and `infra_km`.
+  two geographic variables: `elevation_std` (terrain roughness) and
+  `dist_to_river_km` (distance to major rivers).
 
 - **What it represents**: the indicator identifies groups of regions
-  sharing similar geographic characteristics and infrastructure levels.
+  sharing similar geographic conditions.
 
-- **Why it matters for this project**: the project's objective is to
-  investigate whether geographic constraints help explain infrastructure
-  distribution across EU regions. The clustering combines terrain-related
-  variables, proximity to water and infrastructure density to identify
-  common regional profiles.
+- **Why it matters for this project**: the objective is to investigate
+  whether geographic constraints help explain infrastructure distribution
+  across EU regions.
 
-- **Visualisation**: the x-axis shows a Geographic Difficulty Score,
-  computed from standardised elevation, terrain roughness and distance
-  to rivers. Higher values indicate regions facing stronger geographic
-  constraints.
+- **Visualisation**: the x-axis shows a Geographic Difficulty Score
+  derived from the standardised geographic variables. Higher values
+  indicate stronger geographic constraints.
 
-- **How to interpret it**: the clustering reveals distinct regional profiles.
-  Regions in Cluster 0 combine relatively favourable geographic conditions
-  with high infrastructure density, while Cluster 1 contains regions with
-  similar geographic conditions but more moderate infrastructure levels.
-  Cluster 2 groups regions facing greater geographic constraints and generally
-  lower infrastructure density. Finally, Cluster 3 represents a small set of
-  regions with very high geographic difficulty and very limited infrastructure.
-  Overall, the results suggest that geographic constraints are associated with
-  lower infrastructure development across EU regions.
+- **How to interpret it**: regions with higher Geographic Difficulty
+  Scores generally tend to exhibit lower infrastructure density.
+  However, the relationship is not systematic. The size of the bubbles
+  suggests that population density may also influence infrastructure
+  development, as some densely populated regions maintain relatively
+  high infrastructure levels despite geographic constraints.
 
-- Bubble colours indicate the cluster assigned by the K-Means algorithm.
+- Colours indicate the cluster assigned by the K-Means algorithm.
+
+- Bubble size represents population density (`pop_density`).
+
 """
 
     return fig, explanation
