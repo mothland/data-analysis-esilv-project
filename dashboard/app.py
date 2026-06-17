@@ -33,6 +33,7 @@ TEAM_MEMBERS = [
     "Ricardo Zwein",
     "Ahmat Rouchad",
     "Chanez Khelifa",
+    "Chems Mitta"
 ]
 DATASET_NAME = "EU Infrastructure vs Geography & Public Expenditure (NUTS2)"
 
