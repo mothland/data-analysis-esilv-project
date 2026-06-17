@@ -6,10 +6,6 @@
 - `queries.py` — all query functions. **Query 1 (grouping) is fully
   implemented.** Queries 2-4 are placeholders following a shared contract
   for your teammates to fill in.
-- `generate_mock_data.py` — generates `../data/master_mock.csv`, a
-  synthetic but realistic dataset (334 real NUTS2 codes x 7 years) so the
-  dashboard works *before* the real pipeline finishes running.
-
 ## How to run
 
 ```bash
@@ -39,27 +35,6 @@ markdown explanation in its own tab. **No changes to `app.py` are needed**
 when a teammate fills in `query2_pattern_mining`, `query3_spatial_clustering`,
 or `query4_temporal_forecast` in `queries.py` — just implement the function
 body and return a real figure + explanation.
-
-## Switching from mock data to the real pipeline output
-
-Once `notebook_skeleton.ipynb` runs successfully and produces the `master`
-GeoDataFrame, export it once:
-
-```python
-master.drop(columns="geometry").to_csv("data/master.csv", index=False)
-```
-
-Then in `app.py`, change:
-
-```python
-DATA_PATH = "../data/master_mock.csv"
-```
-to:
-```python
-DATA_PATH = "../data/master.csv"
-```
-
-Column names already match — no other code changes needed.
 
 ## Producing the submission file
 

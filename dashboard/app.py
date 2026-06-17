@@ -12,13 +12,6 @@ To produce the required submission file (familyNameLeader_dashboard.html
 or .pdf):
     - HTML: in the browser, right-click -> "Save Page As" -> Webpage, HTML only
     - PDF:  in the browser, Cmd/Ctrl+P -> Save as PDF
-
-Switching from mock to real data:
-    Once the team's pipeline produces the real `master` dataframe
-    (see notebook_skeleton.ipynb), export it once with:
-        master.to_csv("../data/master.csv", index=False)
-    then change DATA_PATH below to "../data/master.csv". No other
-    code changes are needed — column names already match.
 """
 
 import pandas as pd
@@ -37,7 +30,6 @@ TEAM_MEMBERS = [
 ]
 DATASET_NAME = "EU Infrastructure vs Geography & Public Expenditure (NUTS2)"
 
-# Use the mock dataset until the real pipeline produces master.csv
 DATA_PATH = "../data/master.csv"
 
 # ─── Load data ──────────────────────────────────────────────────────
