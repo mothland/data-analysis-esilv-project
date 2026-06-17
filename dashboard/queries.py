@@ -168,7 +168,7 @@ def query2_pattern_mining(df, year_min=2015, year_max=2022, min_support=0.10, to
         y="combination",
         orientation="h",
         color="support",
-        color_continuous_scale="Blues",
+        color_continuous_scale="deep",
         labels={"support": "Support (share of regions)", "combination": "Frequent combination"},
         title="Query 2 — Most frequent combinations of region characteristics",
     )
