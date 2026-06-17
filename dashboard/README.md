@@ -1,55 +1,46 @@
 # Dashboard — EU Infrastructure Analysis
 
+`app.py` is a Dash application with four tabs, one per analysis query, and it loads the real master dataset from `../data/master.csv` at startup. Each tab renders a Plotly figure and a markdown explanation produced by the corresponding query function in `queries.py`.
+
 ## Files
 
-- `app.py` — main Dash application (4 tabs, one per query)
-- `queries.py` — all query functions. **Query 1 (grouping) is fully
-  implemented.** Queries 2-4 are placeholders following a shared contract
-  for your teammates to fill in.
+- `app.py` — the Dash application, loads data and lays out the four tabs
+- `queries.py` — all four query functions, each returning `(fig, explanation_markdown)`
+
 ## How to run
 
 ```bash
 cd dashboard
-pip install dash plotly pandas
 python app.py
 ```
 
-Open http://127.0.0.1:8050
+Open `http://127.0.0.1:8050` in your browser. To produce the submission file, right-click the page and save as HTML, or use Ctrl+P to save as PDF.
 
-## Query function contract (for teammates)
+## Query function contract
 
-Every query function must look like this:
+Every function in `queries.py` follows this signature so `app.py` never needs to change:
 
 ```python
-def queryX_something(df, **kwargs) -> tuple[plotly.graph_objects.Figure, str]:
-    """
-    Input:  df - the master dataframe
-    Output: (fig, explanation_markdown)
-    """
+def queryX_name(df, **kwargs) -> tuple[plotly.graph_objects.Figure, str]:
+    # Input:  df — the master dataframe
+    # Output: (fig, explanation_markdown)
     ...
     return fig, explanation
 ```
 
-`app.py` calls each function once at startup and renders the figure +
-markdown explanation in its own tab. **No changes to `app.py` are needed**
-when a teammate fills in `query2_pattern_mining`, `query3_spatial_clustering`,
-or `query4_temporal_forecast` in `queries.py` — just implement the function
-body and return a real figure + explanation.
+## What each query does
+
+**Query 1 (grouping):** computes `infra_km / expenditure_mEUR` per NUTS2 region for a given year (default 2021) and shows the top 15 regions as a horizontal bar chart coloured by country.
+
+**Query 2 (pattern mining):** converts each region into a basket of four low/mid/high labels (terrain, water proximity, budget, infrastructure density, averaged over 2015–2022) and uses Apriori to find the most frequent two-item combinations across all regions. Ranked by support.
+
+**Query 3 (spatial clustering):** runs K-Means with four clusters on `elevation_std` and `dist_to_river_km` for 2021, then plots each region's infrastructure density against its geographic difficulty score, with bubble size proportional to population density.
+
+**Query 4 (temporal):** aggregates to EU-wide yearly averages and totals, then overlays a three-year rolling mean on the infrastructure density line alongside bars for total public expenditure, on a dual-axis chart.
 
 ## Producing the submission file
 
 The project requires `familyNameLeader_dashboard.html` or `.pdf`:
 
-- **HTML**: with `app.py` running, in the browser right-click → "Save Page
-  As" → Webpage, HTML only
-- **PDF**: with `app.py` running, in the browser press Cmd/Ctrl+P → Save as
-  PDF (make sure all 4 tabs' content is visible/captured — you may need to
-  take one screenshot per tab and combine into a single PDF)
-
-## Note on Query 1 (grouping)
-
-**Indicator**: `efficiency = infra_km / expenditure_mEUR` — kilometres of
-road/rail infrastructure per million EUR of public transport expenditure,
-per NUTS2 region, for a given year (default 2021). Shows the top 15 regions
-as a horizontal bar chart, coloured by country. Full explanation is in the
-dashboard itself and in the function docstring in `queries.py`.
+- **HTML**: with `app.py` running, right-click the page → "Save Page As" → Webpage, HTML only
+- **PDF**: with `app.py` running, press Ctrl+P → Save as PDF (you may need to capture each tab separately and combine)
